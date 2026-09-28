@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import hpp from "hpp";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
-import { isDatabaseReady } from "./config/database.js";
+import { connectDatabase, isDatabaseReady } from "./config/database.js";
 import { buildOpenApiSpec } from "./config/swagger.js";
 import { requestContext } from "./middlewares/requestContext.js";
 import { sanitize } from "./middlewares/sanitize.js";
@@ -47,7 +47,10 @@ export function createApp() {
   app.use("/api/docs", (req, res, next) => { res.removeHeader("Content-Security-Policy"); next(); }, swaggerUi.serve, swaggerUi.setup(spec, { customSiteTitle: "AMS API Docs" }));
   app.get("/api/docs.json", (_req, res) => res.json(spec));
 
-  app.use("/api/v1", globalLimiter, api);
+  // A normal server connects before it starts listening, so this does nothing there. A serverless instance (Vercel) has
+  // no start-up step: the first request makes the connection, later ones reuse it.
+  const database = (_req, res, next) => (isDatabaseReady() ? next() : connectDatabase().then(() => next(), () => res.status(503).json({ success: false, message: "The service is starting or the database is unreachable. Please try again.", code: "DATABASE_UNAVAILABLE", errors: [] })));
+  app.use("/api/v1", database, globalLimiter, api);
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;

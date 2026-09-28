@@ -28,4 +28,5 @@ export async function withTransaction(fn) {
   }
 }
 
-export const opts = (session) => (session ? { session } : {});
+// `ordered`: Mongoose refuses to create several documents in a transaction unless they are written in order.
+export const opts = (session) => (session ? { session, ordered: true } : {});

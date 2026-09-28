@@ -1,8 +1,7 @@
-import { env } from "../config/env.js";
 import { ROLES } from "../constants/index.js";
 import { AuthorizationError, BadRequestError, ConflictError } from "../utils/errors.js";
 import { addDaysToKey, dateKeyInTz } from "../utils/time.js";
-import { dailyAttendanceProcessing, monthlyFinalization, subscriptionChecks } from "../jobs/index.js";
+import { SCHEDULER_ENABLED, dailyAttendanceProcessing, monthlyFinalization, subscriptionChecks } from "../jobs/index.js";
 import { recordAudit } from "./audit.service.js";
 
 const MAX_CATCH_UP_DAYS = 31;
@@ -16,7 +15,7 @@ const JOBS = {
 const running = new Set(); // one run of a job per scope at a time (per server process)
 
 export const jobStatus = (user) => ({
-  scheduled: env.jobsEnabled, // false = nothing runs on its own
+  scheduled: SCHEDULER_ENABLED, // false = nothing runs on its own
   jobs: Object.entries(JOBS).filter(([, j]) => user.role === ROLES.SUPER_ADMIN || !j.platformOnly).map(([key, j]) => ({ key, label: j.label })),
 });
 
