@@ -252,6 +252,47 @@ test("menu counts: each login gets numbers only for what it may see, from its ow
   await post(`/me/leaves/${ask.body.data._id}/withdraw`, tokens.hr2);
 });
 
+test("jobs: run by hand from the dashboard; a company only ever processes itself", async () => {
+  const { AttendanceRecord } = await import("../src/models/index.js");
+  const { dateKeyInTz, addDaysToKey } = await import("../src/utils/time.js");
+  const yesterday = (tz) => addDaysToKey(dateKeyInTz(new Date(), tz), -1);
+  const yA = yesterday("Asia/Kolkata");
+  await AttendanceRecord.deleteMany({ date: { $gte: addDaysToKey(yA, -5) } });
+
+  const status = (await get("/jobs", companyA)).body.data;
+  assert.equal(status.scheduled, false); // never scheduled under test
+  assert.deepEqual(status.jobs.map((j) => j.key), ["daily", "monthly"]);
+  for (const t of [deviceA, tokens.hr, tokens.staff]) { assert.equal((await get("/jobs", t)).status, 403); assert.equal((await post("/jobs/run", t)).status, 403); }
+  assert.equal((await post("/jobs/run", companyA, { jobs: ["subscriptions"] })).status, 403);
+  assert.equal((await post("/jobs/run", companyA, { jobs: ["nope"] })).status, 422);
+  assert.equal((await post("/jobs/run", companyA, { from: dateKeyInTz(new Date(), "Asia/Kolkata") })).status, 400); // today is not over
+  assert.equal((await post("/jobs/run", companyA, { from: addDaysToKey(yA, -40) })).status, 400);
+
+  const run = await post("/jobs/run", companyA, { from: addDaysToKey(yA, -2) });
+  assert.equal(run.status, 200, JSON.stringify(run.body));
+  assert.equal(run.body.data.scope, "COMPANY");
+  const daily = run.body.data.results.find((r) => r.key === "daily");
+  assert.deepEqual([daily.ok, daily.summary.companies, daily.summary.days, daily.summary.to], [true, 1, 3, yA]);
+  assert.equal(run.body.data.results.find((r) => r.key === "monthly").ok, true);
+  const mine = await AttendanceRecord.find({ companyId: F.A.company._id, date: yA }).lean();
+  assert.ok(mine.length >= 2);
+  assert.ok(mine.every((r) => r.finalizedAt && ["ABSENT", "WEEK_OFF", "HOLIDAY", "ON_LEAVE"].includes(r.status)));
+  assert.equal(await AttendanceRecord.countDocuments({ companyId: F.B.company._id, date: { $gte: addDaysToKey(yA, -5) } }), 0); // B untouched
+  const again = await post("/jobs/run", companyA, { jobs: ["daily"] }); // safe to press twice
+  assert.equal(again.status, 200);
+  assert.equal(await AttendanceRecord.countDocuments({ companyId: F.A.company._id, date: yA }), mine.length);
+  assert.ok(await AuditLog.exists({ action: "jobs.run_manually", companyId: F.A.company._id }));
+
+  const root = (await login(F.superEmail)).token;
+  assert.deepEqual((await get("/jobs", root)).body.data.jobs.map((j) => j.key), ["daily", "monthly", "subscriptions"]);
+  const all = await post("/jobs/run", root);
+  assert.equal(all.status, 200, JSON.stringify(all.body));
+  assert.equal(all.body.data.scope, "ALL_COMPANIES");
+  assert.ok(all.body.data.results.find((r) => r.key === "daily").summary.companies >= 2);
+  assert.ok(all.body.data.results.every((r) => r.ok));
+  assert.ok((await AttendanceRecord.countDocuments({ companyId: F.B.company._id, date: yesterday("America/New_York") })) > 0);
+});
+
 test("employee login lifecycle: follows the employee record", async () => {
   // the company resets a password: old sessions and the old password stop working
   assert.equal((await patch(`/employees/${staff._id}`, companyA, { password: "BrandNewPassw0rd!" })).status, 200);

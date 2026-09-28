@@ -48,4 +48,5 @@ export const reportQuery = listQuery.extend({
   format: z.enum(["json", "csv"]).default("json"),
 }).refine((v) => v.to >= v.from, { message: "'to' must be on or after 'from'", path: ["to"] });
 export const salaryReportQuery = z.object({ month: monthKey, employeeId: objectId.optional(), department: objectId.optional(), format: z.enum(["json", "csv"]).default("json") });
+export const runJobsSchema = z.object({ jobs: z.array(z.enum(["daily", "monthly", "subscriptions"])).max(3).optional(), from: dateKey.optional() }).strict();
 export const notificationListQuery = listQuery.extend({ unread: z.enum(["true", "false"]).transform((v) => v === "true").optional() });

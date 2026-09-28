@@ -2,39 +2,64 @@ import cron from "node-cron";
 import { Company, AttendanceRecord, Subscription } from "../models/index.js";
 import { COMPANY_STATUS, SUBSCRIPTION_STATUS } from "../constants/index.js";
 import { logger } from "../config/logger.js";
-import { dateKeyInTz, addDaysToKey } from "../utils/time.js";
+import { dateKeyInTz, addDaysToKey, eachDateKey } from "../utils/time.js";
 import { recomputeCompanyDay } from "../services/attendance/recompute.js";
 import { notify } from "../services/notification.service.js";
 import { User } from "../models/index.js";
 
-const activeCompanies = () => Company.find({ status: { $in: [COMPANY_STATUS.ACTIVE, COMPANY_STATUS.TRIAL] }, deletedAt: null }).lean();
+/**
+ * Every job takes `{ companyId }` to work on one company instead of all of them, and returns a summary of what it did.
+ * The schedule (startJobs) calls them with no options; the dashboard button calls the same functions by hand.
+ */
+const activeCompanies = (companyId) =>
+  Company.find({ status: { $in: [COMPANY_STATUS.ACTIVE, COMPANY_STATUS.TRIAL] }, deletedAt: null, ...(companyId && { _id: companyId }) }).lean();
 
-/** Finalises yesterday for every tenant: auto-marks absent/holiday/week-off/leave and flags INCOMPLETE. */
-export async function dailyAttendanceProcessing(now = new Date()) {
-  for (const c of await activeCompanies()) {
+/**
+ * Finalises yesterday for every tenant: auto-marks absent/holiday/week-off/leave and flags INCOMPLETE.
+ * `from` (a date key) also processes the days before yesterday, for catching up after the schedule was off.
+ */
+export async function dailyAttendanceProcessing(now = new Date(), { companyId, from } = {}) {
+  const summary = { companies: 0, days: 0, employeeDays: 0, from: null, to: null };
+  for (const c of await activeCompanies(companyId)) {
     const yesterday = addDaysToKey(dateKeyInTz(now, c.timezone), -1);
-    const n = await recomputeCompanyDay(c._id, yesterday, { now });
-    await AttendanceRecord.updateMany({ companyId: c._id, date: yesterday, finalizedAt: null }, { finalizedAt: now });
-    logger.info({ msg: "daily attendance processed", companyId: String(c._id), date: yesterday, employees: n });
+    const dates = from && from < yesterday ? eachDateKey(from, yesterday) : [yesterday];
+    for (const date of dates) { // oldest first: each day's late count builds on the days before it
+      const n = await recomputeCompanyDay(c._id, date, { now });
+      await AttendanceRecord.updateMany({ companyId: c._id, date, finalizedAt: null }, { finalizedAt: now });
+      logger.info({ msg: "daily attendance processed", companyId: String(c._id), date, employees: n });
+      summary.employeeDays += n;
+    }
+    summary.companies++;
+    summary.days = Math.max(summary.days, dates.length);
+    summary.from = dates[0];
+    summary.to = yesterday;
   }
+  return summary;
 }
 
-export async function subscriptionChecks(now = new Date()) {
-  const expired = await Subscription.find({ status: { $in: [SUBSCRIPTION_STATUS.TRIAL, SUBSCRIPTION_STATUS.ACTIVE] }, currentPeriodEnd: { $lt: now } }).lean();
+export async function subscriptionChecks(now = new Date(), { companyId } = {}) {
+  const expired = await Subscription.find({ status: { $in: [SUBSCRIPTION_STATUS.TRIAL, SUBSCRIPTION_STATUS.ACTIVE] }, currentPeriodEnd: { $lt: now }, ...(companyId && { companyId }) }).lean();
   for (const s of expired) {
     await Subscription.updateOne({ _id: s._id }, { status: SUBSCRIPTION_STATUS.EXPIRED });
     const admins = await User.find({ companyId: s.companyId, role: "COMPANY" }).select("_id").lean();
     for (const a of admins) await notify({ companyId: s.companyId, userId: a._id, title: "Subscription expired", body: "Renew to continue using the service." });
   }
+  return { expired: expired.length };
 }
 
-export async function monthlyFinalization(now = new Date()) {
-  for (const c of await activeCompanies()) {
+/** On the 1st of the month (company time) closes the previous month. `force` closes it on any day, for a run by hand. */
+export async function monthlyFinalization(now = new Date(), { companyId, force = false } = {}) {
+  const summary = { companies: 0, records: 0, month: null };
+  for (const c of await activeCompanies(companyId)) {
     const today = dateKeyInTz(now, c.timezone);
-    if (today.slice(8) !== "01") continue;
-    const prev = addDaysToKey(today, -1);
-    await AttendanceRecord.updateMany({ companyId: c._id, date: { $gte: `${prev.slice(0, 7)}-01`, $lte: prev }, finalizedAt: null }, { finalizedAt: now });
+    if (!force && today.slice(8) !== "01") continue;
+    const prev = addDaysToKey(`${today.slice(0, 7)}-01`, -1); // last day of the previous month
+    const res = await AttendanceRecord.updateMany({ companyId: c._id, date: { $gte: `${prev.slice(0, 7)}-01`, $lte: prev }, finalizedAt: null }, { finalizedAt: now });
+    summary.companies++;
+    summary.records += res.modifiedCount ?? 0;
+    summary.month = prev.slice(0, 7);
   }
+  return summary;
 }
 
 export function startJobs() {

@@ -34,6 +34,7 @@ export const PERMISSIONS = Object.freeze({
   AUDIT_READ: "audit.read",
   NOTIFICATION_READ: "notification.read",
   DASHBOARD_READ: "dashboard.read",
+  JOBS_RUN: "jobs.run", // run the background jobs by hand: platform admin for every company, a company for itself
 });
 
 const P = PERMISSIONS;
@@ -47,12 +48,12 @@ const companyPerms = [
   P.LEAVE_CREATE, P.LEAVE_READ, P.LEAVE_CANCEL, P.LEAVE_APPROVE,
   P.ATTENDANCE_SCAN, P.ATTENDANCE_READ, P.ATTENDANCE_UPDATE,
   P.FACE_MANAGE, P.DEVICE_MANAGE, P.REPORTS_READ,
-  P.AUDIT_READ, P.NOTIFICATION_READ, P.DASHBOARD_READ,
+  P.AUDIT_READ, P.NOTIFICATION_READ, P.DASHBOARD_READ, P.JOBS_RUN,
 ];
 
 /** Role → permission set. Add a role (or move this to the database) without touching any controller. */
 export const ROLE_PERMISSIONS = Object.freeze({
-  [ROLES.SUPER_ADMIN]: new Set([P.COMPANY_MANAGE_ALL, P.NOTIFICATION_READ, P.DASHBOARD_READ, P.AUDIT_READ]),
+  [ROLES.SUPER_ADMIN]: new Set([P.COMPANY_MANAGE_ALL, P.NOTIFICATION_READ, P.DASHBOARD_READ, P.AUDIT_READ, P.JOBS_RUN]),
   [ROLES.COMPANY]: new Set(companyPerms),
   [ROLES.ATTENDANCE_DEVICE]: new Set([P.ATTENDANCE_SCAN]),
   [ROLES.EMPLOYEE]: new Set([P.SELF_READ, P.LEAVE_APPLY, P.NOTIFICATION_READ]),

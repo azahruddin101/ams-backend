@@ -5,7 +5,7 @@ import employeeRoutes from "./employee.routes.js";
 import { departmentRoutes, shiftRoutes, holidayRoutes, leaveTypeRoutes } from "./catalog.routes.js";
 import { attendanceRoutes, policyRoutes, faceRoutes, deviceRoutes } from "./attendance.routes.js";
 import { meRoutes } from "./me.routes.js";
-import { leaveRoutes, reportRoutes, dashboardRoutes, notificationRoutes, auditRoutes } from "./misc.routes.js";
+import { leaveRoutes, reportRoutes, dashboardRoutes, jobRoutes, notificationRoutes, auditRoutes } from "./misc.routes.js";
 
 const api = Router();
 api.use("/auth", authRoutes);
@@ -23,6 +23,7 @@ api.use("/leaves", leaveRoutes);
 api.use("/me", meRoutes);
 api.use("/reports", reportRoutes);
 api.use("/dashboard", dashboardRoutes);
+api.use("/jobs", jobRoutes);
 api.use("/notifications", notificationRoutes);
 api.use("/audit-logs", auditRoutes);
 export default api;

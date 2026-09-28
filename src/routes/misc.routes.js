@@ -2,7 +2,7 @@ import { defineRoutes } from "../utils/routeBuilder.js";
 import * as c from "../controllers/misc.controller.js";
 import { PERMISSIONS as P } from "../constants/permissions.js";
 import { idParams, listQuery } from "../validators/common.js";
-import { leaveRequestSchema, decideLeaveSchema, leaveBalanceQuery, leaveListQuery, reportQuery, salaryReportQuery, notificationListQuery } from "../validators/org.js";
+import { leaveRequestSchema, decideLeaveSchema, leaveBalanceQuery, leaveListQuery, reportQuery, salaryReportQuery, runJobsSchema, notificationListQuery } from "../validators/org.js";
 
 export const leaveRoutes = defineRoutes({ prefix: "/leaves", tag: "Leaves" }, [
   { method: "post", path: "/", summary: "Record leave for an employee (approved immediately, updates attendance)", permission: P.LEAVE_CREATE, body: leaveRequestSchema, handler: c.createLeave },
@@ -27,6 +27,11 @@ export const reportRoutes = defineRoutes({ prefix: "/reports", tag: "Reports" },
 export const dashboardRoutes = defineRoutes({ prefix: "/dashboard", tag: "Dashboard" }, [
   { method: "get", path: "/company", summary: "Company admin dashboard metrics", permission: P.DASHBOARD_READ, handler: c.dashboard },
   { method: "get", path: "/menu-counts", summary: "Numbers shown beside the menu entries, limited to what the signed-in login may see", handler: c.menuCounts },
+]);
+
+export const jobRoutes = defineRoutes({ prefix: "/jobs", tag: "Jobs" }, [
+  { method: "get", path: "/", summary: "Whether the jobs run on a schedule, and which ones this login may run by hand", permission: P.JOBS_RUN, tenant: false, handler: c.jobsStatus },
+  { method: "post", path: "/run", summary: "Run the background jobs now (platform admin: every company; company: itself). `from` catches up missed days.", permission: P.JOBS_RUN, tenant: false, body: runJobsSchema, handler: c.runJobs },
 ]);
 
 export const notificationRoutes = defineRoutes({ prefix: "/notifications", tag: "Notifications" }, [
