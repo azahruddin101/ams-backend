@@ -1,0 +1,28 @@
+import { Router } from "express";
+import authRoutes from "./auth.routes.js";
+import companyRoutes from "./company.routes.js";
+import employeeRoutes from "./employee.routes.js";
+import { departmentRoutes, shiftRoutes, holidayRoutes, leaveTypeRoutes } from "./catalog.routes.js";
+import { attendanceRoutes, policyRoutes, faceRoutes, deviceRoutes } from "./attendance.routes.js";
+import { meRoutes } from "./me.routes.js";
+import { leaveRoutes, reportRoutes, dashboardRoutes, notificationRoutes, auditRoutes } from "./misc.routes.js";
+
+const api = Router();
+api.use("/auth", authRoutes);
+api.use("/companies", companyRoutes);
+api.use("/employees", employeeRoutes);
+api.use("/departments", departmentRoutes);
+api.use("/shifts", shiftRoutes);
+api.use("/holidays", holidayRoutes);
+api.use("/leave-types", leaveTypeRoutes);
+api.use("/attendance", attendanceRoutes);
+api.use("/attendance-policies", policyRoutes);
+api.use("/face", faceRoutes);
+api.use("/devices", deviceRoutes);
+api.use("/leaves", leaveRoutes);
+api.use("/me", meRoutes);
+api.use("/reports", reportRoutes);
+api.use("/dashboard", dashboardRoutes);
+api.use("/notifications", notificationRoutes);
+api.use("/audit-logs", auditRoutes);
+export default api;
