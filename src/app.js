@@ -55,3 +55,10 @@ export function createApp() {
   app.use(errorHandler);
   return app;
 }
+
+/**
+ * The application itself. Vercel runs an Express project with no configuration: it looks for src/app.js or src/server.js
+ * and uses the default export, calling it once per request. Both files export this same instance, so either works.
+ */
+const app = createApp();
+export default app;

@@ -2,7 +2,7 @@ import "./setup.js";
 import request from "supertest";
 import mongoose from "mongoose";
 import { connectDatabase, disconnectDatabase } from "../../src/config/database.js";
-import { createApp } from "../../src/app.js";
+import application from "../../src/app.js";
 import { User } from "../../src/models/index.js";
 import { ROLES } from "../../src/constants/index.js";
 import { hashPassword } from "../../src/utils/crypto.js";
@@ -13,7 +13,7 @@ import { Department, Shift } from "../../src/models/index.js";
 export const PASSWORD = "TestPassw0rd!x";
 const ctx = { user: { id: null }, ip: "test" };
 
-export const app = () => (globalThis.__app ??= createApp());
+export const app = () => application;
 export const api = () => request(app());
 
 export async function boot() {

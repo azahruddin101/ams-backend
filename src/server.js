@@ -1,12 +1,10 @@
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { connectDatabase, disconnectDatabase } from "./config/database.js";
-import { createApp } from "./app.js";
+import app from "./app.js";
 // SCHEDULER SWITCHED OFF: see the note at the bottom of jobs/index.js.
 // import { startJobs } from "./jobs/index.js";
 import "./models/index.js";
-
-const app = createApp();
 
 /** A normal, long-running server (local development, a VM, a container). */
 async function main() {
@@ -27,7 +25,7 @@ async function main() {
   process.on("unhandledRejection", (err) => logger.error({ msg: "unhandledRejection", err: String(err) }));
 }
 
-// On Vercel there is no port to listen on: the platform calls the exported app for each request (see api/index.js).
+// On Vercel there is no port to listen on: the platform calls the exported app for each request.
 if (!process.env.VERCEL) {
   main().catch((err) => {
     logger.fatal({ msg: "startup failed", err: err.message });
