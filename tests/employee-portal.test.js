@@ -228,6 +228,30 @@ test("designations: what was typed before is offered next time, per company", as
   assert.equal((await get("/employees/designations", tokens.hr)).status, 200); // needed by employees who add employees
 });
 
+test("menu counts: each login gets numbers only for what it may see, from its own company", async () => {
+  const a = (await get("/dashboard/menu-counts", companyA)).body.data;
+  assert.deepEqual(Object.keys(a).sort(), ["attendance", "departments", "devices", "employees", "holidays", "leaveTypes", "leaves", "shifts"]);
+  assert.equal(a.employees, (await get("/employees?limit=1", companyA)).body.pagination.total);
+  assert.equal(a.departments, (await get("/departments?limit=1", companyA)).body.pagination.total);
+  assert.equal(a.devices, 1);
+  assert.equal(a.leaveTypes, 3);
+  const b = (await get("/dashboard/menu-counts", companyB)).body.data;
+  assert.equal(b.employees, (await get("/employees?limit=1", companyB)).body.pagination.total);
+  assert.notEqual(a.employees, b.employees);
+
+  const ask = await post("/me/leaves", tokens.hr2, { leaveTypeId: String((await get("/me/leave-types", tokens.hr2)).body.data[0]._id), dates: ["2026-08-04"], approverId: String(hr._id) });
+  assert.equal(ask.status, 201, JSON.stringify(ask.body));
+  assert.equal((await get("/dashboard/menu-counts", companyA)).body.data.leaves, a.leaves + 1); // waiting requests
+  const approver = (await get("/dashboard/menu-counts", tokens.hr)).body.data;
+  assert.deepEqual(Object.keys(approver).sort(), ["approvals", "employees", "myLeaves"]);
+  assert.deepEqual([approver.approvals, approver.myLeaves], [1, 0]);
+  assert.equal((await get("/dashboard/menu-counts", tokens.hr2)).body.data.myLeaves, 1);
+  assert.deepEqual((await get("/dashboard/menu-counts", tokens.staff)).body.data, { myLeaves: 0 }); // no authority: nothing about the company
+  assert.deepEqual((await get("/dashboard/menu-counts", deviceA)).body.data, {});
+  assert.equal((await api().get("/api/v1/dashboard/menu-counts")).status, 401);
+  await post(`/me/leaves/${ask.body.data._id}/withdraw`, tokens.hr2);
+});
+
 test("employee login lifecycle: follows the employee record", async () => {
   // the company resets a password: old sessions and the old password stop working
   assert.equal((await patch(`/employees/${staff._id}`, companyA, { password: "BrandNewPassw0rd!" })).status, 200);

@@ -26,6 +26,7 @@ export const reportRoutes = defineRoutes({ prefix: "/reports", tag: "Reports" },
 
 export const dashboardRoutes = defineRoutes({ prefix: "/dashboard", tag: "Dashboard" }, [
   { method: "get", path: "/company", summary: "Company admin dashboard metrics", permission: P.DASHBOARD_READ, handler: c.dashboard },
+  { method: "get", path: "/menu-counts", summary: "Numbers shown beside the menu entries, limited to what the signed-in login may see", handler: c.menuCounts },
 ]);
 
 export const notificationRoutes = defineRoutes({ prefix: "/notifications", tag: "Notifications" }, [
